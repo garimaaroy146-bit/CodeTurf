@@ -1,0 +1,51 @@
+import streamlit as st
+from PIL import Image
+import pytesseract
+import pdfplumber
+from openai import OpenAI
+
+client = OpenAI(api_key="PASTE_YOUR_API_KEY")
+
+st.title("SmartScan Expense Auditor")
+
+uploaded_file = st.file_uploader("Upload Receipt (Image or PDF)")
+
+receipt_text = ""
+
+if uploaded_file:
+
+    if uploaded_file.type == "application/pdf":
+        with pdfplumber.open(uploaded_file) as pdf:
+            for page in pdf.pages:
+                receipt_text += page.extract_text()
+
+    else:
+        image = Image.open(uploaded_file)
+        receipt_text = pytesseract.image_to_string(image)
+
+    st.subheader("Receipt Text")
+    st.write(receipt_text)
+
+    if st.button("Analyze Receipt"):
+
+        prompt = f"""
+Extract:
+
+Merchant name
+Total amount
+Tax category
+Short reason
+
+Receipt:
+{receipt_text}
+"""
+
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role":"user","content":prompt}]
+        )
+
+        result = response.choices[0].message.content
+
+        st.subheader("AI Result")
+        st.write(result)
